@@ -244,14 +244,34 @@ function render() {
         ctx.stroke();
     }
 
-    orbRotationAngle += 0.03;
+    // Global base tick increment
+    orbRotationAngle += 0.045;
 
-    // Draw Orbs
+    // Draw Orbs with Dynamic Speeds
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             const cell = grid[r] ? grid[r][c] : null;
             if (cell && cell.count > 0 && cell.player) {
-                drawOrbs(r, c, cell.count, cell.player.color);
+                // Calculate speed based on cell critical limit and orb count
+                let cellAngle = 0;
+
+                if (cell.count === 1) {
+                    cellAngle = 0; // Still (no rotation)
+                } else if (cell.critical === 3) {
+                    // Edge cell: 2 orbs rotate at full normal speed
+                    cellAngle = orbRotationAngle; 
+                } else if (cell.critical === 4) {
+                    // Center cell: 2 orbs rotate slow (half speed), 3 orbs rotate at normal speed
+                    if (cell.count === 2) {
+                        cellAngle = orbRotationAngle * 0.45; // Slow rotation
+                    } else {
+                        cellAngle = orbRotationAngle;        // Normal fast rotation
+                    }
+                } else {
+                    cellAngle = orbRotationAngle;
+                }
+
+                drawOrbs(r, c, cell.count, cell.player.color, cellAngle);
             }
         }
     }
@@ -267,7 +287,7 @@ function render() {
     requestAnimationFrame(render);
 }
 
-function drawOrbs(r, c, count, color) {
+function drawOrbs(r, c, count, color, angle) {
     const cx = c * CELL_W + CELL_W / 2;
     const cy = r * CELL_H + CELL_H / 2;
     const radius = 11;
@@ -278,15 +298,16 @@ function drawOrbs(r, c, count, color) {
     ctx.shadowBlur = 14;
 
     if (count === 1) {
+        // Single orb is completely static
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
     } else if (count === 2) {
         const offset = 9;
-        const x1 = cx + Math.cos(orbRotationAngle) * offset;
-        const y1 = cy + Math.sin(orbRotationAngle) * offset;
-        const x2 = cx - Math.cos(orbRotationAngle) * offset;
-        const y2 = cy - Math.sin(orbRotationAngle) * offset;
+        const x1 = cx + Math.cos(angle) * offset;
+        const y1 = cy + Math.sin(angle) * offset;
+        const x2 = cx - Math.cos(angle) * offset;
+        const y2 = cy - Math.sin(angle) * offset;
 
         ctx.beginPath();
         ctx.arc(x1, y1, radius - 1, 0, Math.PI * 2);
@@ -295,9 +316,9 @@ function drawOrbs(r, c, count, color) {
     } else if (count >= 3) {
         const offset = 10;
         for (let i = 0; i < 3; i++) {
-            const angle = orbRotationAngle + (i * Math.PI * 2 / 3);
+            const orbAngle = angle + (i * Math.PI * 2 / 3);
             ctx.beginPath();
-            ctx.arc(cx + Math.cos(angle) * offset, cy + Math.sin(angle) * offset, radius - 2, 0, Math.PI * 2);
+            ctx.arc(cx + Math.cos(orbAngle) * offset, cy + Math.sin(orbAngle) * offset, radius - 2, 0, Math.PI * 2);
             ctx.fill();
         }
     }
