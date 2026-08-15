@@ -29,6 +29,8 @@ let gridFlashes = [];
 let orbRotationAngle = 0;
 let isLoopRunning = false;
 let selectedBehavior = 'breathing';
+let selectedShape = 'sphere';
+let selectedCollisionStyle = 'ripple';
 
 // Compute Grid Orientation & Dimension Constraints
 function configureGridDimensions() {
@@ -92,6 +94,8 @@ function startNewGame() {
     const playerCount = parseInt(document.getElementById('player-count-select').value);
     const difficulty = document.getElementById('ai-difficulty').value;
     selectedBehavior = document.getElementById('orb-behavior-select').value;
+    selectedShape = document.getElementById('orb-shape-select').value;
+    selectedCollisionStyle = document.getElementById('collision-style-select').value;
     
     players = [];
     for (let i = 0; i < playerCount; i++) {
@@ -226,10 +230,13 @@ async function processChainReaction() {
             for (let n of neighbors) {
                 const targetX = n.c * CELL_W + CELL_W / 2;
                 const targetY = n.r * CELL_H + CELL_H / 2;
+                
                 projectiles.push(new Projectile(cx, cy, targetX, targetY, player.color, () => {
                     grid[n.r][n.c].count += 1;
                     grid[n.r][n.c].player = player;
-                    gridFlashes[n.r][n.c] = 0.6;
+                    
+                    // Trigger custom collision effect
+                    triggerCellCollision(n.r, n.c, player.color);
                 }));
             }
         }
@@ -409,36 +416,112 @@ function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
     const cy = r * CELL_H + CELL_H / 2;
     const isNearCritical = count >= critical - 1;
 
-    // Helper: Draw standard 3D glossy sphere
+    // Multi-Shape Geometry Dispatcher
     const renderSphere = (ox, oy, radius) => {
         ctx.save();
         ctx.shadowColor = player.color;
         ctx.shadowBlur = radius * 1.2;
 
-        const grad = ctx.createRadialGradient(
-            ox - radius * 0.35,
-            oy - radius * 0.35,
-            radius * 0.1,
-            ox,
-            oy,
-            radius
-        );
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.25, player.light || player.color);
-        grad.addColorStop(0.7, player.color);
-        grad.addColorStop(1, player.dark || '#000000');
+        if (selectedShape === 'crystal') {
+            // Faceted Hexagonal Crystal Gem
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = (i * Math.PI / 3) + Math.PI / 6;
+                const px = ox + Math.cos(a) * radius;
+                const py = oy + Math.sin(a) * radius;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
 
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
-        ctx.fill();
+            // Inner bevel facet highlight
+            ctx.strokeStyle = player.light || '#ffffff';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
 
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.arc(ox, oy, radius - 0.5, 0, Math.PI * 2);
-        ctx.stroke();
+            // Center facet shine
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(ox, oy, radius * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+        } 
+        else if (selectedShape === 'diamond') {
+            // 4-Point Arcane Diamond Prism
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(ox, oy - radius * 1.15);
+            ctx.lineTo(ox + radius * 0.85, oy);
+            ctx.lineTo(ox, oy + radius * 1.15);
+            ctx.lineTo(ox - radius * 0.85, oy);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        } 
+        else if (selectedShape === 'plasma') {
+            // Bio-Plasma Radial Glow Core
+            const pGrad = ctx.createRadialGradient(ox, oy, 0, ox, oy, radius * 1.2);
+            pGrad.addColorStop(0, '#ffffff');
+            pGrad.addColorStop(0.3, player.light || player.color);
+            pGrad.addColorStop(0.75, player.color);
+            pGrad.addColorStop(1, 'transparent');
+
+            ctx.fillStyle = pGrad;
+            ctx.beginPath();
+            ctx.arc(ox, oy, radius * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        } 
+        else if (selectedShape === 'ring_core') {
+            // Planetary Sphere with Tilted Halo Ring
+            const grad = ctx.createRadialGradient(ox - radius * 0.3, oy - radius * 0.3, radius * 0.1, ox, oy, radius * 0.8);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.3, player.light || player.color);
+            grad.addColorStop(0.75, player.color);
+            grad.addColorStop(1, player.dark || '#000000');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(ox, oy, radius * 0.75, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Outer Ring
+            ctx.strokeStyle = player.light || '#ffffff';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.ellipse(ox, oy, radius * 1.35, radius * 0.45, Math.PI / 4, 0, Math.PI * 2);
+            ctx.stroke();
+        } 
+        else {
+            // Default: 3D Glossy Marble Sphere
+            const grad = ctx.createRadialGradient(
+                ox - radius * 0.35,
+                oy - radius * 0.35,
+                radius * 0.1,
+                ox,
+                oy,
+                radius
+            );
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.25, player.light || player.color);
+            grad.addColorStop(0.7, player.color);
+            grad.addColorStop(1, player.dark || '#000000');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.arc(ox, oy, radius - 0.5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         ctx.restore();
     };
@@ -531,5 +614,54 @@ function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
             const angle = (i * Math.PI * 2 / 3) - Math.PI / 2;
             renderSphere(cx + Math.cos(angle) * offset, cy + Math.sin(angle) * offset, radius * 0.9);
         }
+    }
+}
+
+// Dynamic Impact & Collision Dispatcher
+function triggerCellCollision(r, c, color) {
+    const cx = c * CELL_W + CELL_W / 2;
+    const cy = r * CELL_H + CELL_H / 2;
+
+    switch (selectedCollisionStyle) {
+        case 'ripple':
+            // Expanding sharp ring
+            shockwaves.push(new Shockwave(cx, cy, color));
+            gridFlashes[r][c] = 0.2;
+            break;
+
+        case 'splatter':
+            // High-speed directional splash particles
+            for (let i = 0; i < 8; i++) {
+                particles.push(new Particle(cx, cy, color));
+            }
+            gridFlashes[r][c] = 0.15;
+            break;
+
+        case 'starburst':
+            // 4-point expanding starburst nova
+            shockwaves.push(new Shockwave(cx, cy, color));
+            for (let i = 0; i < 6; i++) {
+                particles.push(new Particle(cx, cy, '#ffffff'));
+            }
+            gridFlashes[r][c] = 0.3;
+            break;
+
+        case 'implosion':
+            // Inward converging sparks
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 20 + 15;
+                const p = new Particle(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, color);
+                p.vx = -Math.cos(angle) * 2;
+                p.vy = -Math.sin(angle) * 2;
+                particles.push(p);
+            }
+            gridFlashes[r][c] = 0.2;
+            break;
+
+        case 'subtle_flash':
+        default:
+            gridFlashes[r][c] = 0.4;
+            break;
     }
 }
