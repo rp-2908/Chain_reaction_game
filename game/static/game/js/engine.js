@@ -2,14 +2,14 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const COLOR_PALETTE = [
-    { id: 1, name: 'Red', color: '#ff3366' },
-    { id: 2, name: 'Green', color: '#00ff88' },
-    { id: 3, name: 'Blue', color: '#00e5ff' },
-    { id: 4, name: 'Yellow', color: '#ffe600' },
-    { id: 5, name: 'Purple', color: '#b026ff' },
-    { id: 6, name: 'Orange', color: '#ff7700' },
-    { id: 7, name: 'White', color: '#f8fafc' },
-    { id: 8, name: 'Pink', color: '#ff00aa' }
+    { id: 1, name: 'Crimson Flame', color: '#ff2a5f', light: '#ff94b1', dark: '#500014' },
+    { id: 2, name: 'Emerald Poison', color: '#00f576', light: '#99ffd1', dark: '#004720' },
+    { id: 3, name: 'Arcane Frost', color: '#00d4ff', light: '#b3f3ff', dark: '#003a4d' },
+    { id: 4, name: 'Solar Flare', color: '#ffd000', light: '#fff099', dark: '#4d3e00' },
+    { id: 5, name: 'Void Nether', color: '#c026d3', light: '#f0abfc', dark: '#3b0764' },
+    { id: 6, name: 'Abyssal Lava', color: '#ff6600', light: '#ffc299', dark: '#4d1f00' },
+    { id: 7, name: 'Spectral Soul', color: '#e0e7ff', light: '#ffffff', dark: '#312e81' },
+    { id: 8, name: 'Shadow Curse', color: '#f43f5e', light: '#fda4af', dark: '#4c0519' }
 ];
 
 const ROWS = 9;
@@ -24,6 +24,8 @@ let isProcessing = false;
 let totalTurns = 0;
 let particles = [];
 let projectiles = [];
+let shockwaves = [];
+let gridFlashes = [];
 let orbRotationAngle = 0;
 let isLoopRunning = false;
 
@@ -37,7 +39,7 @@ function startNewGame() {
         const typeSelect = document.getElementById(`player-type-${i}`);
         players.push({
             ...COLOR_PALETTE[i],
-            isAi: typeSelect ? typeSelect.value === 'ai' : false,
+            isAi: typeSelect ? typeSelect.value === 'ai' : (i > 0),
             difficulty: difficulty
         });
     }
@@ -53,6 +55,7 @@ function startNewGame() {
     totalTurns = 0;
     particles = [];
     projectiles = [];
+    shockwaves = [];
     isProcessing = false;
 
     // Show canvas & HUD, hide lobby
@@ -72,15 +75,23 @@ function startNewGame() {
 
 function initGrid() {
     grid = [];
+    gridFlashes = [];
     for (let r = 0; r < ROWS; r++) {
         let row = [];
+        let flashRow = [];
         for (let c = 0; c < COLS; c++) {
             let critical = 4;
-            if ((r === 0 || r === ROWS - 1) && (c === 0 || c === COLS - 1)) critical = 2;
-            else if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) critical = 3;
+            const isTopOrBottom = (r === 0 || r === ROWS - 1);
+            const isLeftOrRight = (c === 0 || c === COLS - 1);
+
+            if (isTopOrBottom && isLeftOrRight) critical = 2;
+            else if (isTopOrBottom || isLeftOrRight) critical = 3;
+
             row.push({ count: 0, player: null, critical: critical });
+            flashRow.push(0);
         }
         grid.push(row);
+        gridFlashes.push(flashRow);
     }
 }
 
@@ -97,7 +108,7 @@ function updateHUD() {
 canvas.addEventListener('click', (e) => {
     if (isProcessing) return;
     const current = players[activePlayerIndex];
-    if (current.isAi) return;
+    if (current && current.isAi) return;
 
     const rect = canvas.getBoundingClientRect();
     const c = Math.floor((e.clientX - rect.left) / CELL_W);
@@ -115,6 +126,7 @@ async function makeMove(r, c) {
 
     cell.count += 1;
     cell.player = current;
+    gridFlashes[r][c] = 0.8;
     totalTurns++;
     sounds.playPlace(1);
 
@@ -140,7 +152,7 @@ async function processChainReaction() {
 
         sounds.playExplode(combo++);
 
-        // Spawn particles and projectiles
+        // Spawn particles, shockwaves, and projectiles
         for (let item of unstableCells) {
             const { r, c, player, critical } = item;
             grid[r][c].count -= critical;
@@ -148,6 +160,9 @@ async function processChainReaction() {
 
             const cx = c * CELL_W + CELL_W / 2;
             const cy = r * CELL_H + CELL_H / 2;
+
+            shockwaves.push(new Shockwave(cx, cy, player.color));
+            gridFlashes[r][c] = 1.0;
 
             for (let i = 0; i < 12; i++) {
                 particles.push(new Particle(cx, cy, player.color));
@@ -160,6 +175,7 @@ async function processChainReaction() {
                 projectiles.push(new Projectile(cx, cy, targetX, targetY, player.color, () => {
                     grid[n.r][n.c].count += 1;
                     grid[n.r][n.c].player = player;
+                    gridFlashes[n.r][n.c] = 0.6;
                 }));
             }
         }
@@ -203,7 +219,7 @@ function checkWinner() {
     const alive = players.filter(p => isPlayerAlive(p));
     if (alive.length === 1) {
         sounds.playWin();
-        alert(`🏆 ${alive[0].name} (${alive[0].isAi ? 'CPU' : 'Player'}) Wins!`);
+        alert(`🔮 VICTORY: ${alive[0].name} (${alive[0].isAi ? 'CPU' : 'Player'}) Wins!`);
         document.getElementById('lobby-modal').style.display = 'block';
         document.getElementById('hud').style.display = 'none';
         canvas.style.display = 'none';
@@ -228,40 +244,39 @@ async function triggerAiIfNeeded() {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Grid lines with visible neon styling
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 1.5;
-    for (let r = 0; r <= ROWS; r++) {
-        ctx.beginPath();
-        ctx.moveTo(0, r * CELL_H);
-        ctx.lineTo(canvas.width, r * CELL_H);
-        ctx.stroke();
-    }
-    for (let c = 0; c <= COLS; c++) {
-        ctx.beginPath();
-        ctx.moveTo(c * CELL_W, 0);
-        ctx.lineTo(c * CELL_W, canvas.height);
-        ctx.stroke();
+    // 1. Draw Grid Lines and Arcane Glow Pulses
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            const x = c * CELL_W;
+            const y = r * CELL_H;
+
+            if (gridFlashes[r] && gridFlashes[r][c] > 0) {
+                ctx.fillStyle = `rgba(168, 85, 247, ${gridFlashes[r][c] * 0.22})`;
+                ctx.fillRect(x, y, CELL_W, CELL_H);
+                gridFlashes[r][c] -= 0.025;
+            }
+
+            ctx.strokeStyle = 'rgba(147, 51, 234, 0.15)';
+            ctx.lineWidth = 1.2;
+            ctx.strokeRect(x, y, CELL_W, CELL_H);
+        }
     }
 
     // Global base tick increment
     orbRotationAngle += 0.045;
 
-    // Draw Orbs with Dynamic Speeds
+    // 2. Draw 3D Glossy Marbles with Dynamic Speeds
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             const cell = grid[r] ? grid[r][c] : null;
             if (cell && cell.count > 0 && cell.player) {
-                // Calculate speed based on cell critical limit and orb count
                 let cellAngle = 0;
 
                 if (cell.count === 1) {
-                    cellAngle = 0; // Still (no rotation)
+                    cellAngle = 0; // Still
                 } else if (cell.critical === 3) {
-                    // Edge cell: 2 orbs rotate at full normal speed
                     cellAngle = orbRotationAngle; 
                 } else if (cell.critical === 4) {
-                    // Center cell: 2 orbs rotate slow (half speed), 3 orbs rotate at normal speed
                     if (cell.count === 2) {
                         cellAngle = orbRotationAngle * 0.45; // Slow rotation
                     } else {
@@ -271,37 +286,62 @@ function render() {
                     cellAngle = orbRotationAngle;
                 }
 
-                drawOrbs(r, c, cell.count, cell.player.color, cellAngle);
+                draw3DGlossyMarble(r, c, cell.count, cell.player, cellAngle);
             }
         }
     }
 
-    // Update & Draw Particles
+    // 3. Draw Shockwaves
+    shockwaves = shockwaves.filter(s => s.alpha > 0);
+    shockwaves.forEach(s => { s.update(); s.draw(ctx); });
+
+    // 4. Update & Draw Particles
     particles = particles.filter(p => p.alpha > 0);
     particles.forEach(p => { p.update(); p.draw(ctx); });
 
-    // Update & Draw Projectiles
+    // 5. Update & Draw Projectiles
     projectiles = projectiles.filter(pr => !pr.update());
     projectiles.forEach(pr => pr.draw(ctx));
 
     requestAnimationFrame(render);
 }
 
-function drawOrbs(r, c, count, color, angle) {
+// 3D Spherical Marble Shader
+function draw3DGlossyMarble(r, c, count, player, angle) {
     const cx = c * CELL_W + CELL_W / 2;
     const cy = r * CELL_H + CELL_H / 2;
-    const radius = 11;
+    const radius = 11.5;
 
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 14;
+    const renderSingleSphere = (ox, oy) => {
+        ctx.save();
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 14;
+
+        // Multi-point realistic radial lighting
+        const grad = ctx.createRadialGradient(ox - radius * 0.35, oy - radius * 0.35, radius * 0.1, ox, oy, radius);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.25, player.light || player.color);
+        grad.addColorStop(0.7, player.color);
+        grad.addColorStop(1, player.dark || '#000000');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rim highlight
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(ox, oy, radius - 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+    };
 
     if (count === 1) {
-        // Single orb is completely static
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fill();
+        renderSingleSphere(cx, cy);
     } else if (count === 2) {
         const offset = 9;
         const x1 = cx + Math.cos(angle) * offset;
@@ -309,18 +349,13 @@ function drawOrbs(r, c, count, color, angle) {
         const x2 = cx - Math.cos(angle) * offset;
         const y2 = cy - Math.sin(angle) * offset;
 
-        ctx.beginPath();
-        ctx.arc(x1, y1, radius - 1, 0, Math.PI * 2);
-        ctx.arc(x2, y2, radius - 1, 0, Math.PI * 2);
-        ctx.fill();
+        renderSingleSphere(x1, y1);
+        renderSingleSphere(x2, y2);
     } else if (count >= 3) {
         const offset = 10;
         for (let i = 0; i < 3; i++) {
             const orbAngle = angle + (i * Math.PI * 2 / 3);
-            ctx.beginPath();
-            ctx.arc(cx + Math.cos(orbAngle) * offset, cy + Math.sin(orbAngle) * offset, radius - 2, 0, Math.PI * 2);
-            ctx.fill();
+            renderSingleSphere(cx + Math.cos(orbAngle) * offset, cy + Math.sin(orbAngle) * offset);
         }
     }
-    ctx.restore();
 }
