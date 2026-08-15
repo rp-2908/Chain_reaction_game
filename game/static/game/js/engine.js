@@ -244,24 +244,24 @@ async function triggerAiIfNeeded() {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Draw Grid Lines and Arcane Glow Pulses
+    // 1. Draw Grid Lines and Emerald Flash Ripples
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             const x = c * CELL_W;
             const y = r * CELL_H;
 
             if (gridFlashes[r] && gridFlashes[r][c] > 0) {
-                ctx.fillStyle = `rgba(168, 85, 247, ${gridFlashes[r][c] * 0.22})`;
+                ctx.fillStyle = `rgba(16, 185, 129, ${gridFlashes[r][c] * 0.25})`;
                 ctx.fillRect(x, y, CELL_W, CELL_H);
                 gridFlashes[r][c] -= 0.025;
             }
 
-            ctx.strokeStyle = 'rgba(147, 51, 234, 0.15)';
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.18)';
             ctx.lineWidth = 1.2;
             ctx.strokeRect(x, y, CELL_W, CELL_H);
         }
     }
-
+    
     // Global base tick increment
     orbRotationAngle += 0.045;
 
