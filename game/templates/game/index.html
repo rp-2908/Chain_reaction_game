@@ -3,15 +3,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chain Reaction Arcade</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chain Reaction: Arcane Forest</title>
     <link rel="stylesheet" href="{% static 'game/css/style.css' %}">
 </head>
 <body>
     <div class="dynamic-bg"></div>
     <div class="dark-overlay"></div>
-
-    <!-- Background Snow / Spores Layer -->
     <canvas id="snowCanvas"></canvas>
 
     <!-- HUD Overlay -->
@@ -23,13 +21,26 @@
         <button class="btn-secondary" onclick="location.reload()">Exit Game</button>
     </div>
 
-    <!-- Main Game Canvas -->
-    <canvas id="gameCanvas" width="420" height="630"></canvas>
+    <!-- Responsive Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
 
     <!-- Lobby Setup Modal -->
     <div id="lobby-modal" class="glass-panel">
         <h1>CHAIN REACTION</h1>
-        <p class="subtitle">Arcade Edition with AI Heuristics</p>
+        <p class="subtitle">Arcane Forest Edition</p>
+
+        <!-- Grid Size Preset Selector -->
+        <div class="form-group">
+            <label for="grid-size-select">Realm Arena Size</label>
+            <select id="grid-size-select">
+                <option value="auto" selected>Auto Detect (Mobile Portrait / Desktop Landscape)</option>
+                <option value="small">Small Arena (6 × 4 / 4 × 6)</option>
+                <option value="standard">Standard Arena (9 × 6 / 6 × 9)</option>
+                <option value="large">Grand Battlefield (12 × 8 / 8 × 12)</option>
+                <option value="square">Square Colosseum (8 × 8)</option>
+                <option value="titan">Titan Arena (16 × 16)</option>
+            </select>
+        </div>
 
         <div class="form-group">
             <label for="player-count-select">Number of Players</label>
@@ -54,6 +65,17 @@
         </div>
 
         <div class="form-group">
+            <label for="orb-behavior-select">Orb Reaction & Motion</label>
+            <select id="orb-behavior-select">
+                <option value="breathing" selected>Gentle Breathing (Slow Pulse)</option>
+                <option value="levitate">Floating Levitation (Gentle 3D Hover)</option>
+                <option value="vortex">Orbital Vortex (Classic Rotation)</option>
+                <option value="critical_jitter">Unstable Overcharge (Jitter at Near-Critical)</option>
+                <option value="liquid_fuse">Super-Mass Fusion (Merges into 1 Mega-Orb)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
             <label>Player Slot Types</label>
             <div id="players-config-list"></div>
         </div>
@@ -61,7 +83,6 @@
         <button class="btn-primary" onclick="startNewGame()">START BATTLE</button>
     </div>
 
-    <!-- Scripts -->
     <script src="{% static 'game/js/audio.js' %}"></script>
     <script src="{% static 'game/js/particles.js' %}"></script>
     <script src="{% static 'game/js/ai.js' %}"></script>
