@@ -8,6 +8,11 @@
     <link rel="stylesheet" href="{% static 'game/css/style.css' %}">
 </head>
 <body>
+    <div class="dynamic-bg"></div>
+    <div class="dark-overlay"></div>
+
+    <!-- Background Snow / Spores Layer -->
+    <canvas id="snowCanvas"></canvas>
 
     <!-- HUD Overlay -->
     <div id="hud" class="glass-panel">
@@ -56,7 +61,7 @@
         <button class="btn-primary" onclick="startNewGame()">START BATTLE</button>
     </div>
 
-    <!-- Load Modular JS -->
+    <!-- Scripts -->
     <script src="{% static 'game/js/audio.js' %}"></script>
     <script src="{% static 'game/js/particles.js' %}"></script>
     <script src="{% static 'game/js/ai.js' %}"></script>
@@ -84,7 +89,6 @@
                 container.appendChild(row);
             }
         }
-        // Initialize lobby slot list on load
         renderLobbyPlayerList();
     </script>
 </body>

@@ -261,7 +261,7 @@ function render() {
             ctx.strokeRect(x, y, CELL_W, CELL_H);
         }
     }
-    
+
     // Global base tick increment
     orbRotationAngle += 0.045;
 
@@ -359,3 +359,74 @@ function draw3DGlossyMarble(r, c, count, player, angle) {
         }
     }
 }
+
+// --- Ambient Arcane Snow / Forest Spores ---
+class SnowFlake {
+    constructor(w, h) {
+        this.w = w;
+        this.h = h;
+        this.reset(true);
+    }
+
+    reset(initial = false) {
+        this.x = Math.random() * this.w;
+        this.y = initial ? Math.random() * this.h : -10;
+        this.radius = Math.random() * 2.2 + 0.8;
+        this.speedY = Math.random() * 0.9 + 0.4;
+        this.speedX = Math.sin(Math.random() * Math.PI) * 0.4 - 0.2;
+        this.alpha = Math.random() * 0.6 + 0.2;
+        this.sway = Math.random() * 0.02;
+        this.angle = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        this.angle += this.sway;
+        this.x += Math.sin(this.angle) * 0.5 + this.speedX;
+        this.y += this.speedY;
+
+        if (this.y > this.h + 10 || this.x < -10 || this.x > this.w + 10) {
+            this.reset();
+        }
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.fillStyle = `rgba(200, 255, 225, ${this.alpha})`;
+        ctx.shadowColor = '#6ee7b7';
+        ctx.shadowBlur = this.radius > 1.8 ? 8 : 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function startSnowEffect() {
+    const snowCanvas = document.getElementById('snowCanvas');
+    if (!snowCanvas) return;
+
+    const sCtx = snowCanvas.getContext('2d');
+    let width = (snowCanvas.width = window.innerWidth);
+    let height = (snowCanvas.height = window.innerHeight);
+
+    window.addEventListener('resize', () => {
+        width = snowCanvas.width = window.innerWidth;
+        height = snowCanvas.height = window.innerHeight;
+    });
+
+    const flakes = Array.from({ length: 65 }, () => new SnowFlake(width, height));
+
+    function animateSnow() {
+        sCtx.clearRect(0, 0, width, height);
+        flakes.forEach((flake) => {
+            flake.update();
+            flake.draw(sCtx);
+        });
+        requestAnimationFrame(animateSnow);
+    }
+
+    animateSnow();
+}
+
+// Initialize snow loop on load
+startSnowEffect();

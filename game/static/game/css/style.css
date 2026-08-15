@@ -1,5 +1,66 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
 
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #e6f7ef;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+    background-color: #020805;
+}
+
+/* Responsive Dynamic Background with Subtle Breathing Zoom */
+.dynamic-bg {
+    position: fixed;
+    top: -8%;
+    left: -8%;
+    width: 116vw;
+    height: 116vh;
+    background-image: url('../images/560578.jpg'); /* Your working local image path */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -2;
+    animation: atmosphericDrift 20s ease-in-out infinite alternate;
+}
+
+/* Ambient Vignette Overlay */
+.dark-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(4, 15, 10, 0.45) 0%, rgba(2, 8, 5, 0.85) 100%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Smooth slow dynamic pan & zoom */
+@keyframes atmosphericDrift {
+    0% {
+        transform: scale(1) translate(0, 0);
+    }
+    50% {
+        transform: scale(1.06) translate(-1%, -0.5%);
+    }
+    100% {
+        transform: scale(1.03) translate(1%, 0.5%);
+    }
+}
+
+/* Fullscreen Ambient Snow / Spore Canvas */
+#snowCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 0;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -12,7 +73,7 @@ body {
     /* High-Resolution Deep Dark Misty Forest Backdrop */
     background: 
         linear-gradient(180deg, rgba(4, 15, 10, 0.65) 0%, rgba(2, 8, 5, 0.85) 100%),
-        url('../images/560617.jpg') no-repeat center center fixed;
+        url('../images/560578.jpg') no-repeat center center fixed;
     background-size: cover;
     color: #e6f7ef;
     display: flex;
