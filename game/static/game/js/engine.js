@@ -2,14 +2,14 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const COLOR_PALETTE = [
-    { id: 1, name: 'Crimson Flame', color: '#ff2a5f', light: '#ff94b1', dark: '#500014' },
-    { id: 2, name: 'Emerald Poison', color: '#00f576', light: '#99ffd1', dark: '#004720' },
-    { id: 3, name: 'Arcane Frost', color: '#00d4ff', light: '#b3f3ff', dark: '#003a4d' },
-    { id: 4, name: 'Solar Flare', color: '#ffd000', light: '#fff099', dark: '#4d3e00' },
-    { id: 5, name: 'Void Nether', color: '#c026d3', light: '#f0abfc', dark: '#3b0764' },
-    { id: 6, name: 'Abyssal Lava', color: '#ff6600', light: '#ffc299', dark: '#4d1f00' },
-    { id: 7, name: 'Spectral Soul', color: '#e0e7ff', light: '#ffffff', dark: '#312e81' },
-    { id: 8, name: 'Shadow Curse', color: '#f43f5e', light: '#fda4af', dark: '#4c0519' }
+    { id: 1, name: 'Captain Crimson', color: '#ff3366', light: '#ff99b3', dark: '#66001a', symbol: '☠️' },
+    { id: 2, name: 'Siren Emerald',   color: '#00ffaa', light: '#99ffd6', dark: '#006644', symbol: '⚓' },
+    { id: 3, name: 'Corsair Gold',    color: '#ffcc00', light: '#ffea80', dark: '#665200', symbol: '⚔️' },
+    { id: 4, name: 'Abyssal Kraken',  color: '#aa00ff', light: '#dd80ff', dark: '#440066', symbol: '🐙' },
+    { id: 5, name: 'Navigator Azure', color: '#00bfff', light: '#99e6ff', dark: '#004c66', symbol: '🧭' },
+    { id: 6, name: 'Powder Orange',   color: '#ff6600', light: '#ffb380', dark: '#662900', symbol: '💣' },
+    { id: 7, name: 'Ghost Silver',    color: '#e0e6ed', light: '#ffffff', dark: '#5a6268', symbol: '🗡️' },
+    { id: 8, name: 'Shadow Black',    color: '#553377', light: '#9966cc', dark: '#221133', symbol: '📜' }
 ];
 
 let ROWS = 9;
@@ -422,111 +422,49 @@ function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
     const cy = r * CELL_H + CELL_H / 2;
     const isNearCritical = count >= critical - 1;
 
-    // Multi-Shape Geometry Dispatcher
+    // Helper: Draw 3D glossy sphere with glowing pirate insignia
     const renderSphere = (ox, oy, radius) => {
         ctx.save();
         ctx.shadowColor = player.color;
         ctx.shadowBlur = radius * 1.2;
 
-        if (selectedShape === 'crystal') {
-            // Faceted Hexagonal Crystal Gem
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const a = (i * Math.PI / 3) + Math.PI / 6;
-                const px = ox + Math.cos(a) * radius;
-                const py = oy + Math.sin(a) * radius;
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.fill();
+        // 1. Base Marble Gradient
+        const grad = ctx.createRadialGradient(
+            ox - radius * 0.35,
+            oy - radius * 0.35,
+            radius * 0.1,
+            ox,
+            oy,
+            radius
+        );
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.25, player.light || player.color);
+        grad.addColorStop(0.7, player.color);
+        grad.addColorStop(1, player.dark || '#000000');
 
-            // Inner bevel facet highlight
-            ctx.strokeStyle = player.light || '#ffffff';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+        ctx.fill();
 
-            // Center facet shine
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.beginPath();
-            ctx.arc(ox, oy, radius * 0.35, 0, Math.PI * 2);
-            ctx.fill();
-        } 
-        else if (selectedShape === 'diamond') {
-            // 4-Point Arcane Diamond Prism
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.moveTo(ox, oy - radius * 1.15);
-            ctx.lineTo(ox + radius * 0.85, oy);
-            ctx.lineTo(ox, oy + radius * 1.15);
-            ctx.lineTo(ox - radius * 0.85, oy);
-            ctx.closePath();
-            ctx.fill();
+        // 2. Translucent Inner Border Ring
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(ox, oy, radius - 0.5, 0, Math.PI * 2);
+        ctx.stroke();
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        } 
-        else if (selectedShape === 'plasma') {
-            // Bio-Plasma Radial Glow Core
-            const pGrad = ctx.createRadialGradient(ox, oy, 0, ox, oy, radius * 1.2);
-            pGrad.addColorStop(0, '#ffffff');
-            pGrad.addColorStop(0.3, player.light || player.color);
-            pGrad.addColorStop(0.75, player.color);
-            pGrad.addColorStop(1, 'transparent');
+        // 3. Pirate Insignia Overlay
+        if (player.symbol) {
+            ctx.font = `${Math.floor(radius * 1.05)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
 
-            ctx.fillStyle = pGrad;
-            ctx.beginPath();
-            ctx.arc(ox, oy, radius * 1.2, 0, Math.PI * 2);
-            ctx.fill();
-        } 
-        else if (selectedShape === 'ring_core') {
-            // Planetary Sphere with Tilted Halo Ring
-            const grad = ctx.createRadialGradient(ox - radius * 0.3, oy - radius * 0.3, radius * 0.1, ox, oy, radius * 0.8);
-            grad.addColorStop(0, '#ffffff');
-            grad.addColorStop(0.3, player.light || player.color);
-            grad.addColorStop(0.75, player.color);
-            grad.addColorStop(1, player.dark || '#000000');
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(ox, oy, radius * 0.75, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Outer Ring
-            ctx.strokeStyle = player.light || '#ffffff';
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.ellipse(ox, oy, radius * 1.35, radius * 0.45, Math.PI / 4, 0, Math.PI * 2);
-            ctx.stroke();
-        } 
-        else {
-            // Default: 3D Glossy Marble Sphere
-            const grad = ctx.createRadialGradient(
-                ox - radius * 0.35,
-                oy - radius * 0.35,
-                radius * 0.1,
-                ox,
-                oy,
-                radius
-            );
-            grad.addColorStop(0, '#ffffff');
-            grad.addColorStop(0.25, player.light || player.color);
-            grad.addColorStop(0.7, player.color);
-            grad.addColorStop(1, player.dark || '#000000');
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(ox, oy, radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-            ctx.lineWidth = 0.8;
-            ctx.beginPath();
-            ctx.arc(ox, oy, radius - 0.5, 0, Math.PI * 2);
-            ctx.stroke();
+            // Subtle glow for the emblem
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 3;
+            ctx.fillText(player.symbol, ox, oy + 1);
         }
 
         ctx.restore();
