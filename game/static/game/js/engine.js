@@ -26,11 +26,7 @@ let particles = [];
 let projectiles = [];
 let shockwaves = [];
 let gridFlashes = [];
-let orbRotationAngle = 0;
 let isLoopRunning = false;
-let selectedBehavior = 'breathing';
-let selectedShape = 'sphere';
-let selectedCollisionStyle = 'ripple';
 
 // Compute Grid Orientation & Dimension Constraints
 function configureGridDimensions() {
@@ -94,9 +90,6 @@ function startNewGame() {
     sounds.init();
     const playerCount = parseInt(document.getElementById('player-count-select').value);
     const difficulty = document.getElementById('ai-difficulty').value;
-    selectedBehavior = document.getElementById('orb-behavior-select').value;
-    selectedShape = document.getElementById('orb-shape-select').value;
-    selectedCollisionStyle = document.getElementById('collision-style-select').value;
     
     players = [];
     for (let i = 0; i < playerCount; i++) {
@@ -104,7 +97,8 @@ function startNewGame() {
         players.push({
             ...COLOR_PALETTE[i],
             isAi: typeSelect ? typeSelect.value === 'ai' : (i > 0),
-            difficulty: difficulty
+            difficulty: difficulty,
+            isAlive: true
         });
     }
 
@@ -158,7 +152,7 @@ function initGrid() {
 function updateHUD() {
     const p = players[activePlayerIndex];
     if (!p) return;
-    document.getElementById('current-player-name').innerText = `${p.name}'s Turn ${p.isAi ? '(AI)' : ''}`;
+    document.getElementById('current-player-name').innerText = `${p.symbol} ${p.name}'s Turn ${p.isAi ? '(AI)' : ''}`;
     const dot = document.getElementById('current-player-dot');
     dot.style.backgroundColor = p.color;
     dot.style.color = p.color;
@@ -189,7 +183,8 @@ async function makeMove(r, c) {
     cell.player = current;
     gridFlashes[r][c] = 0.8;
     totalTurns++;
-    // sounds.playPlace(1); #disable orb related sound
+
+    // sounds.playPlace(1); // (Muted per request)
 
     await processChainReaction();
     nextTurn();
@@ -211,8 +206,7 @@ async function processChainReaction() {
 
         if (unstableCells.length === 0) break;
 
-        // Sound effect for explosion
-        // sounds.playExplode(combo++);
+        // sounds.playExplode(combo++); // (Muted per request)
 
         for (let item of unstableCells) {
             const { r, c, player, critical } = item;
@@ -225,7 +219,7 @@ async function processChainReaction() {
             shockwaves.push(new Shockwave(cx, cy, player.color));
             gridFlashes[r][c] = 1.0;
 
-            for (let i = 0; i < 12; i++) {
+            for (let i = 0; i < 10; i++) {
                 particles.push(new Particle(cx, cy, player.color));
             }
 
@@ -249,8 +243,8 @@ async function processChainReaction() {
 
         if (checkWinner()) return;
 
-        // Transition Pause: Increased pause before the next cascade so players can register the board state
-        await new Promise(res => setTimeout(res, 100));
+        // Transition Pause: Smooth cascade pacing
+        await new Promise(res => setTimeout(res, 260));
     }
 
     // Turn handover transition pause
@@ -285,7 +279,7 @@ function checkWinner() {
     const alive = players.filter(p => isPlayerAlive(p));
     if (alive.length === 1) {
         sounds.playWin();
-        alert(`🔮 VICTORY: ${alive[0].name} (${alive[0].isAi ? 'CPU' : 'Player'}) Wins!`);
+        alert(`🔮 VICTORY: ${alive[0].symbol} ${alive[0].name} (${alive[0].isAi ? 'CPU' : 'Player'}) Wins!`);
         document.getElementById('lobby-modal').style.display = 'block';
         document.getElementById('hud').style.display = 'none';
         canvas.style.display = 'none';
@@ -319,7 +313,7 @@ function render() {
             if (gridFlashes[r] && gridFlashes[r][c] > 0) {
                 ctx.fillStyle = `rgba(16, 185, 129, ${gridFlashes[r][c] * 0.8})`;
                 ctx.fillRect(x, y, CELL_W, CELL_H);
-                gridFlashes[r][c] -= 1; 
+                gridFlashes[r][c] -= 0.05; 
             }
 
             ctx.strokeStyle = 'rgba(52, 211, 153, 0.18)';
@@ -328,9 +322,7 @@ function render() {
         }
     }
 
-    orbRotationAngle += 0.045;
-
-    // 2. Render Orbs with User-Selected Behavior
+    // 2. Render Orbs with Default Floating Levitation + Insignias
     const baseRadius = Math.min(CELL_W, CELL_H) * 0.22;
 
     for (let r = 0; r < ROWS; r++) {
@@ -357,76 +349,16 @@ function render() {
     requestAnimationFrame(render);
 }
 
-// Breathing Resonance Renderer
-function drawBreathingMarbles(r, c, count, player, baseRadius, breathe) {
-    const cx = c * CELL_W + CELL_W / 2;
-    const cy = r * CELL_H + CELL_H / 2;
-    const radius = Math.max(4, baseRadius + breathe);
-
-    const renderSingleSphere = (ox, oy, currentRadius) => {
-        ctx.save();
-        ctx.shadowColor = player.color;
-        ctx.shadowBlur = currentRadius * 1.2;
-
-        const grad = ctx.createRadialGradient(
-            ox - currentRadius * 0.35, 
-            oy - currentRadius * 0.35, 
-            currentRadius * 0.1, 
-            ox, 
-            oy, 
-            currentRadius
-        );
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.25, player.light || player.color);
-        grad.addColorStop(0.7, player.color);
-        grad.addColorStop(1, player.dark || '#000000');
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(ox, oy, currentRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.arc(ox, oy, currentRadius - 0.5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
-    };
-
-    if (count === 1) {
-        // Single orb pulses gently in center
-        renderSingleSphere(cx, cy, radius);
-    } else if (count === 2) {
-        // Two orbs expand and contract symmetrically
-        const offset = baseRadius * 0.85;
-        renderSingleSphere(cx - offset, cy, radius * 0.95);
-        renderSingleSphere(cx + offset, cy, radius * 0.95);
-    } else if (count >= 3) {
-        // Three orbs in tight triangular resonance
-        const offset = baseRadius * 0.9;
-        for (let i = 0; i < 3; i++) {
-            const angle = (i * Math.PI * 2 / 3) - Math.PI / 2;
-            const ox = cx + Math.cos(angle) * offset;
-            const oy = cy + Math.sin(angle) * offset;
-            renderSingleSphere(ox, oy, radius * 0.9);
-        }
-    }
-}
-
-// Universal Multi-Behavior Renderer
+// Default Floating Levitation + Insignia Renderer
 function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
     const cx = c * CELL_W + CELL_W / 2;
     const cy = r * CELL_H + CELL_H / 2;
-    const isNearCritical = count >= critical - 1;
 
     // Helper: Draw 3D glossy sphere with glowing pirate insignia
     const renderSphere = (ox, oy, radius) => {
         ctx.save();
         ctx.shadowColor = player.color;
-        ctx.shadowBlur = radius * 1.2;
+        ctx.shadowBlur = radius * 1.1;
 
         // 1. Base Marble Gradient
         const grad = ctx.createRadialGradient(
@@ -457,11 +389,10 @@ function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
 
         // 3. Pirate Insignia Overlay
         if (player.symbol) {
-            ctx.font = `${Math.floor(radius * 1.05)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+            ctx.font = `${Math.floor(radius * 1.1)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Subtle glow for the emblem
             ctx.shadowColor = '#000000';
             ctx.shadowBlur = 3;
             ctx.fillText(player.symbol, ox, oy + 1);
@@ -470,142 +401,36 @@ function drawDynamicOrb(r, c, count, player, critical, baseRadius) {
         ctx.restore();
     };
 
-    // --- BEHAVIOR 1: Super-Mass Fusion (Merges into 1 Mega-Orb) ---
-    if (selectedBehavior === 'liquid_fuse') {
-        const growth = 1 + (count - 1) * 0.35;
-        const fusePulse = Math.sin(Date.now() * 0.003) * 1.2;
-        renderSphere(cx, cy, baseRadius * growth + fusePulse);
-        return;
-    }
-
-    // --- BEHAVIOR 2: Floating Levitation (Vertical 3D Hover) ---
-    if (selectedBehavior === 'levitate') {
-        const hoverOffset = baseRadius * 0.85;
-        if (count === 1) {
-            const hoverY = Math.sin(Date.now() * 0.003 + (r + c)) * 2.5;
-            renderSphere(cx, cy + hoverY, baseRadius);
-        } else if (count === 2) {
-            const h1 = Math.sin(Date.now() * 0.003 + r) * 2.5;
-            const h2 = Math.cos(Date.now() * 0.003 + c) * 2.5;
-            renderSphere(cx - hoverOffset, cy + h1, baseRadius * 0.95);
-            renderSphere(cx + hoverOffset, cy + h2, baseRadius * 0.95);
-        } else if (count >= 3) {
-            for (let i = 0; i < 3; i++) {
-                const angle = (i * Math.PI * 2 / 3) - Math.PI / 2;
-                const h = Math.sin(Date.now() * 0.0035 + i) * 2.5;
-                renderSphere(cx + Math.cos(angle) * hoverOffset, cy + Math.sin(angle) * hoverOffset + h, baseRadius * 0.9);
-            }
-        }
-        return;
-    }
-
-    // --- BEHAVIOR 3: Unstable Overcharge (Jitter/Vibration at Near-Critical) ---
-    if (selectedBehavior === 'critical_jitter') {
-        let jx = 0, jy = 0;
-        if (isNearCritical) {
-            jx = (Math.random() - 0.5) * 2.5;
-            jy = (Math.random() - 0.5) * 2.5;
-        }
-        const offset = baseRadius * 0.85;
-        if (count === 1) {
-            renderSphere(cx + jx, cy + jy, baseRadius);
-        } else if (count === 2) {
-            renderSphere(cx - offset + jx, cy + jy, baseRadius * 0.95);
-            renderSphere(cx + offset + jx, cy + jy, baseRadius * 0.95);
-        } else if (count >= 3) {
-            for (let i = 0; i < 3; i++) {
-                const angle = (i * Math.PI * 2 / 3) - Math.PI / 2;
-                renderSphere(cx + Math.cos(angle) * offset + jx, cy + Math.sin(angle) * offset + jy, baseRadius * 0.9);
-            }
-        }
-        return;
-    }
-
-    // --- BEHAVIOR 4: Orbital Vortex (Classic Dynamic Rotation) ---
-    if (selectedBehavior === 'vortex') {
-        let speedMultiplier = isNearCritical ? 1.8 : 0.8;
-        let rotAngle = orbRotationAngle * speedMultiplier;
-        const offset = baseRadius * 0.85;
-
-        if (count === 1) {
-            renderSphere(cx, cy, baseRadius);
-        } else if (count === 2) {
-            renderSphere(cx + Math.cos(rotAngle) * offset, cy + Math.sin(rotAngle) * offset, baseRadius * 0.95);
-            renderSphere(cx - Math.cos(rotAngle) * offset, cy - Math.sin(rotAngle) * offset, baseRadius * 0.95);
-        } else if (count >= 3) {
-            for (let i = 0; i < 3; i++) {
-                const a = rotAngle + (i * Math.PI * 2 / 3);
-                renderSphere(cx + Math.cos(a) * offset, cy + Math.sin(a) * offset, baseRadius * 0.9);
-            }
-        }
-        return;
-    }
-
-    // --- BEHAVIOR 5: Gentle Breathing (Default) ---
-    const pulseFreq = isNearCritical ? 0.005 : 0.0025;
-    const pulseAmp = isNearCritical ? 1.0 : 0.5;
-    const breathe = Math.sin(Date.now() * pulseFreq) * pulseAmp;
-    const radius = Math.max(3, baseRadius + breathe);
-    const offset = baseRadius * 0.85;
+    // Default Floating Levitation Motion
+    const hoverOffset = baseRadius * 0.85;
+    const time = Date.now() * 0.003;
 
     if (count === 1) {
-        renderSphere(cx, cy, radius);
+        const hoverY = Math.sin(time + (r + c)) * 3.0;
+        renderSphere(cx, cy + hoverY, baseRadius);
     } else if (count === 2) {
-        renderSphere(cx - offset, cy, radius * 0.95);
-        renderSphere(cx + offset, cy, radius * 0.95);
+        const h1 = Math.sin(time + r) * 3.0;
+        const h2 = Math.cos(time + c) * 3.0;
+        renderSphere(cx - hoverOffset, cy + h1, baseRadius * 0.95);
+        renderSphere(cx + hoverOffset, cy + h2, baseRadius * 0.95);
     } else if (count >= 3) {
         for (let i = 0; i < 3; i++) {
             const angle = (i * Math.PI * 2 / 3) - Math.PI / 2;
-            renderSphere(cx + Math.cos(angle) * offset, cy + Math.sin(angle) * offset, radius * 0.9);
+            const h = Math.sin(time + i) * 3.0;
+            renderSphere(cx + Math.cos(angle) * hoverOffset, cy + Math.sin(angle) * hoverOffset + h, baseRadius * 0.9);
         }
     }
 }
 
-// Dynamic Impact & Collision Dispatcher
+// Default Shockwave Ring Impact Effect
 function triggerCellCollision(r, c, color) {
     const cx = c * CELL_W + CELL_W / 2;
     const cy = r * CELL_H + CELL_H / 2;
 
-    switch (selectedCollisionStyle) {
-        case 'ripple':
-            // Expanding sharp ring
-            shockwaves.push(new Shockwave(cx, cy, color));
-            gridFlashes[r][c] = 0.2;
-            break;
+    shockwaves.push(new Shockwave(cx, cy, color));
+    gridFlashes[r][c] = 0.35;
 
-        case 'splatter':
-            // High-speed directional splash particles
-            for (let i = 0; i < 8; i++) {
-                particles.push(new Particle(cx, cy, color));
-            }
-            gridFlashes[r][c] = 0.15;
-            break;
-
-        case 'starburst':
-            // 4-point expanding starburst nova
-            shockwaves.push(new Shockwave(cx, cy, color));
-            for (let i = 0; i < 6; i++) {
-                particles.push(new Particle(cx, cy, '#ffffff'));
-            }
-            gridFlashes[r][c] = 0.3;
-            break;
-
-        case 'implosion':
-            // Inward converging sparks
-            for (let i = 0; i < 8; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.random() * 20 + 15;
-                const p = new Particle(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, color);
-                p.vx = -Math.cos(angle) * 2;
-                p.vy = -Math.sin(angle) * 2;
-                particles.push(p);
-            }
-            gridFlashes[r][c] = 0.2;
-            break;
-
-        case 'subtle_flash':
-        default:
-            gridFlashes[r][c] = 0.4;
-            break;
+    for (let i = 0; i < 6; i++) {
+        particles.push(new Particle(cx, cy, color));
     }
 }
