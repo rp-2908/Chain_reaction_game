@@ -91,6 +91,7 @@ function resizeGameCanvas() {
 
 // Setup & Start Game
 function startNewGame() {
+    sounds.init();
     const playerCount = parseInt(document.getElementById('player-count-select').value);
     const difficulty = document.getElementById('ai-difficulty').value;
     selectedBehavior = document.getElementById('orb-behavior-select').value;
@@ -165,6 +166,7 @@ function updateHUD() {
 
 // User Interaction
 canvas.addEventListener('click', (e) => {
+    sounds.init();
     if (isProcessing) return;
     const current = players[activePlayerIndex];
     if (current && current.isAi) return;
@@ -187,7 +189,7 @@ async function makeMove(r, c) {
     cell.player = current;
     gridFlashes[r][c] = 0.8;
     totalTurns++;
-    sounds.playPlace(1);
+    // sounds.playPlace(1); #disable orb related sound
 
     await processChainReaction();
     nextTurn();
@@ -209,7 +211,8 @@ async function processChainReaction() {
 
         if (unstableCells.length === 0) break;
 
-        sounds.playExplode(combo++);
+        // Sound effect for explosion
+        // sounds.playExplode(combo++);
 
         for (let item of unstableCells) {
             const { r, c, player, critical } = item;
@@ -234,21 +237,24 @@ async function processChainReaction() {
                 projectiles.push(new Projectile(cx, cy, targetX, targetY, player.color, () => {
                     grid[n.r][n.c].count += 1;
                     grid[n.r][n.c].player = player;
-                    
-                    // Trigger custom collision effect
                     triggerCellCollision(n.r, n.c, player.color);
                 }));
             }
         }
 
+        // Wait for all flying projectiles to land
         while (projectiles.length > 0) {
-            await new Promise(res => setTimeout(res, 16));
+            await new Promise(res => setTimeout(res, 25));
         }
 
         if (checkWinner()) return;
-        await new Promise(res => setTimeout(res, 60));
+
+        // Transition Pause: Increased pause before the next cascade so players can register the board state
+        await new Promise(res => setTimeout(res, 100));
     }
 
+    // Turn handover transition pause
+    await new Promise(res => setTimeout(res, 150));
     isProcessing = false;
 }
 
@@ -293,7 +299,7 @@ async function triggerAiIfNeeded() {
     const current = players[activePlayerIndex];
     if (current && current.isAi && !isProcessing) {
         isProcessing = true;
-        await new Promise(res => setTimeout(res, 450));
+        await new Promise(res => setTimeout(res, 750));
         const move = GameAI.getBestMove(grid, ROWS, COLS, current, current.difficulty, players);
         isProcessing = false;
         if (move) makeMove(move.r, move.c);
@@ -311,9 +317,9 @@ function render() {
             const y = r * CELL_H;
 
             if (gridFlashes[r] && gridFlashes[r][c] > 0) {
-                ctx.fillStyle = `rgba(16, 185, 129, ${gridFlashes[r][c] * 0.25})`;
+                ctx.fillStyle = `rgba(16, 185, 129, ${gridFlashes[r][c] * 0.8})`;
                 ctx.fillRect(x, y, CELL_W, CELL_H);
-                gridFlashes[r][c] -= 0.025;
+                gridFlashes[r][c] -= 1; 
             }
 
             ctx.strokeStyle = 'rgba(52, 211, 153, 0.18)';
