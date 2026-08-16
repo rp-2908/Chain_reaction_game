@@ -45,6 +45,9 @@ function configureGridDimensions() {
     } else if (preset === 'titan') {
         ROWS = 16; 
         COLS = 16;
+    } else if (preset == 'open') {
+        ROWS = 8;
+        COLS = 20;
     } else {
         // Auto / Standard
         if (isDesktopLandscape) {
