@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 const COLOR_PALETTE = [
     { id: 1, name: 'Captain Crimson', color: '#ff3366', light: '#ff99b3', dark: '#66001a', symbol: '☠️' },
-    { id: 2, name: 'Siren Emerald',   color: '#00ffaa', light: '#99ffd6', dark: '#006644', symbol: '⚓' },
+    { id: 2, name: 'Siren Emerald',   color: '#006442', light: '#99ffd6', dark: '#006644', symbol: '⚓' },
     { id: 3, name: 'Corsair Gold',    color: '#ffcc00', light: '#ffea80', dark: '#665200', symbol: '⚔️' },
     { id: 4, name: 'Abyssal Kraken',  color: '#aa00ff', light: '#dd80ff', dark: '#440066', symbol: '🐙' },
     { id: 5, name: 'Navigator Azure', color: '#00bfff', light: '#99e6ff', dark: '#004c66', symbol: '🧭' },
