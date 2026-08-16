@@ -85,22 +85,18 @@ function resizeGameCanvas() {
     CELL_H = canvas.height / ROWS;
 }
 
-// Modify startNewGame definition
-function startNewGame(shouldBroadcast = true) {
+// Setup & Start Game
+function startNewGame() {
     sounds.init();
     const playerCount = parseInt(document.getElementById('player-count-select').value);
     const difficulty = document.getElementById('ai-difficulty').value;
-    const gridPreset = document.getElementById('grid-size-select').value;
-
-    if (isOnlineGame && isHost && shouldBroadcast && conn) {
-        conn.send({ type: 'START_GAME', playerCount, gridPreset });
-    }
-
+    
     players = [];
     for (let i = 0; i < playerCount; i++) {
+        const typeSelect = document.getElementById(`player-type-${i}`);
         players.push({
             ...COLOR_PALETTE[i],
-            isAi: false, // Turn off CPU for 2-player remote match
+            isAi: typeSelect ? typeSelect.value === 'ai' : (i > 0),
             difficulty: difficulty,
             isAlive: true
         });
@@ -127,22 +123,9 @@ function startNewGame(shouldBroadcast = true) {
         isLoopRunning = true;
         requestAnimationFrame(render);
     }
+
+    triggerAiIfNeeded();
 }
-
-// Modify Canvas Click: Ensure players only click on their own turn
-canvas.addEventListener('click', (e) => {
-    sounds.init();
-    if (isProcessing) return;
-    
-    // In online mode, lock input if it's not your turn
-    if (isOnlineGame && activePlayerIndex !== myPlayerIndex) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const c = Math.floor((e.clientX - rect.left) / CELL_W);
-    const r = Math.floor((e.clientY - rect.top) / CELL_H);
-
-    makeMove(r, c);
-});
 
 function initGrid() {
     grid = [];
@@ -189,7 +172,6 @@ canvas.addEventListener('click', (e) => {
     makeMove(r, c);
 });
 
-// Broadcast move and execute locally
 async function makeMove(r, c) {
     if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
     const cell = grid[r][c];
@@ -197,23 +179,12 @@ async function makeMove(r, c) {
 
     if (cell.player !== null && cell.player.id !== current.id) return;
 
-    // Send move to remote friend
-    if (isOnlineGame && conn && activePlayerIndex === myPlayerIndex) {
-        conn.send({ type: 'MOVE', r: r, c: c });
-    }
-
-    await executeMoveLocally(r, c);
-}
-
-// Extracted local execution function
-async function executeMoveLocally(r, c) {
-    const cell = grid[r][c];
-    const current = players[activePlayerIndex];
-
     cell.count += 1;
     cell.player = current;
     gridFlashes[r][c] = 0.8;
     totalTurns++;
+
+    // sounds.playPlace(1); // (Muted per request)
 
     await processChainReaction();
     nextTurn();
@@ -462,64 +433,4 @@ function triggerCellCollision(r, c, color) {
     for (let i = 0; i < 6; i++) {
         particles.push(new Particle(cx, cy, color));
     }
-}
-
-
-// --- WebRTC Peer-to-Peer Multiplayer Engine ---
-let peer = null;
-let conn = null;
-let isHost = false;
-let myPlayerIndex = 0; // Host is Player 1 (index 0), Guest is Player 2 (index 1)
-let isOnlineGame = false;
-
-// Host a New Room
-document.getElementById('host-room-btn').addEventListener('click', () => {
-    const roomCode = 'PIRATE-' + Math.floor(1000 + Math.random() * 9000);
-    peer = new Peer(roomCode);
-
-    peer.on('open', (id) => {
-        isHost = true;
-        isOnlineGame = true;
-        myPlayerIndex = 0;
-        document.getElementById('room-status').innerHTML = `Room Created! Code: <b style="color:#00ffaa; font-size:1.1rem;">${id}</b> (Share this with your friend)`;
-    });
-
-    peer.on('connection', (c) => {
-        conn = c;
-        setupConnectionListeners();
-        document.getElementById('room-status').innerHTML = `<b style="color:#00ffaa;">Player 2 Connected!</b> Press START BATTLE below.`;
-    });
-});
-
-// Join an Existing Room
-document.getElementById('join-room-btn').addEventListener('click', () => {
-    const code = document.getElementById('join-room-input').value.trim().toUpperCase();
-    if (!code) return alert("Please enter a room code");
-
-    peer = new Peer();
-    peer.on('open', () => {
-        conn = peer.connect(code);
-        isHost = false;
-        isOnlineGame = true;
-        myPlayerIndex = 1;
-
-        conn.on('open', () => {
-            setupConnectionListeners();
-            document.getElementById('room-status').innerHTML = `<b style="color:#00ffaa;">Connected to Host!</b> Waiting for host to start...`;
-        });
-    });
-});
-
-function setupConnectionListeners() {
-    conn.on('data', (data) => {
-        if (data.type === 'START_GAME') {
-            // Apply host's settings and launch
-            document.getElementById('player-count-select').value = data.playerCount;
-            document.getElementById('grid-size-select').value = data.gridPreset;
-            startNewGame(false); // start without rebroadcasting
-        } else if (data.type === 'MOVE') {
-            // Execute the remote player's move
-            executeMoveLocally(data.r, data.c);
-        }
-    });
 }
